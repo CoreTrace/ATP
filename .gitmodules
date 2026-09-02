@@ -1,0 +1,12 @@
+[submodule "coretrace"]
+	path = coretrace
+	url = ../coretrace.git
+[submodule "coretrace-concurrency-analyzer"]
+	path = coretrace-concurrency-analyzer
+	url = ../coretrace-concurrency-analyzer.git
+[submodule "coretrace-runtime-analyzer"]
+	path = coretrace-runtime-analyzer
+	url = ../coretrace-runtime-analyzer.git
+[submodule "coretrace-stack-analyzer"]
+	path = coretrace-stack-analyzer
+	url = ../coretrace-stack-analyzer.git
