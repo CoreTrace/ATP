@@ -56,6 +56,14 @@ ENV LLVM_DIR=/usr/lib/llvm-20/lib/cmake/llvm \
     LD_LIBRARY_PATH=/usr/lib/llvm-20/lib \
     PATH=/usr/lib/llvm-20/bin:/usr/local/bin:/usr/bin:/bin
 
+# Every analyzer resolves its dependencies with FetchContent over https. Some
+# networks (mobile carriers, intercepting proxies) mangle git's HTTP/2 POST to
+# github.com: the ref advertisement answers 200, the upload-pack POST answers
+# 401, and the build stops on "could not read Username for 'https://github.com'"
+# even for public repositories. HTTP/1.1 costs a little clone throughput and
+# lets the image build on any network.
+RUN git config --system http.version HTTP/1.1
+
 # Each repository is copied and built separately so that editing one does not
 # invalidate the cached build of the other three.
 

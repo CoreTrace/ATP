@@ -1,0 +1,13 @@
+# The build context is the ATP root, so everything the host produces sits next
+# to the sources the image copies. Host build trees must not leak in: a
+# CMakeCache.txt generated for /tmp/ATP/<repo> makes the in-image cmake refuse
+# the /atp/<repo> source directory and the build stops on the first analyzer.
+**/build/
+
+# ctrace resolves its version from git; the image gets it via the
+# CORETRACE_VERSION build-arg instead, so the repositories ship without history.
+**/.git
+
+**/__pycache__/
+**/.venv/
+.DS_Store
