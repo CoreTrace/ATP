@@ -19,13 +19,17 @@ exit codes.
 
 ## 1. Get the sources
 
-Clone the four repositories side by side, next to this file:
+Clone the ATP repository together with its CoreTrace submodules:
 
 ```bash
-for r in coretrace coretrace-stack-analyzer \
-         coretrace-concurrency-analyzer coretrace-runtime-analyzer; do
-  git clone "https://github.com/CoreTrace/$r.git"
-done
+git clone --recurse-submodules git@github.com:CoreTrace/ATP.git
+```
+
+If the ATP repository was cloned without `--recurse-submodules`, initialise
+and check out all submodules afterwards:
+
+```bash
+git submodule update --init --recursive
 ```
 
 The resulting layout — the *ATP root* every scenario is written against:
