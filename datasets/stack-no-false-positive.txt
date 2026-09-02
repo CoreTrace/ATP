@@ -1,0 +1,25 @@
+# Fixtures of coretrace-stack-analyzer that must produce NO diagnostic at all.
+#
+# test/false-positive-repro/ also holds fixtures that legitimately expect some
+# diagnostics: they reproduce one false positive while still containing a real
+# defect, and the expectation is encoded as `// at line ...` comments read by
+# run_test.py. Only the files listed here are contractually silent, so only
+# these can be checked with a plain "zero diagnostics" assertion (STACK-11).
+# The full expectation-aware check is STACK-12 (run_test.py).
+#
+# Paths are relative to the coretrace-stack-analyzer checkout.
+test/false-positive-repro/command-buffer-wrapper-balanced.c
+test/false-positive-repro/resource-wrapper-double-release.c
+test/false-positive-repro/stb-like-struct-double-release.c
+test/false-positive-repro/stb-vendor-header-filter.c
+test/false-positive-repro/stbi-wrapper-leak.c
+test/false-positive-repro/vk-update-descriptor-immediate-consume.c
+test/false-positive-repro/vulkan-out-param-uninitialized.c
+test/false-positive-repro/create-info-compile-time-disabled.cpp
+test/false-positive-repro/create-info-memset.cpp
+test/false-positive-repro/duplicate-if-unreachable-elseif-fp.cpp
+test/false-positive-repro/resource-cleanup-double-release.cpp
+test/false-positive-repro/uninitialized-beststack-est.cpp
+test/false-positive-repro/uninitialized-local-maxcallee.cpp
+test/false-positive-repro/uninitialized-merged-return.cpp
+test/false-positive-repro/vk-update-descriptor-index-accessor.cpp
