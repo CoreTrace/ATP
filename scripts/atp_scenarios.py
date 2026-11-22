@@ -51,8 +51,8 @@ SCENARIOS = [
             'Engine running, at least 4 CPUs and 8 GB of memory given to Docker, 10 GB of'
             ' free disk, git, and network access to GitHub and apt.llvm.org. Steps 1 to 4'
             ' run on the host (README.md, section 2). Without git, download the repository'
-            ' from its GitHub page (Code, then Download ZIP), unzip it and start at step 2'
-            ' from the folder you get.'
+            ' from its GitHub page (Code, then Download ZIP), unzip it, open a terminal in'
+            ' the folder you get (ATP-main) and start at step 3.'
             ' The build took 6 min 30 s on an 8-core laptop; allow up to 30 min on a '
             'slower machine or network.'
         ),
