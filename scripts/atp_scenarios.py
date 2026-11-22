@@ -5,9 +5,12 @@ Kept apart from the spreadsheet writer so that iterating on the plan between
 test cycles is a data edit, not a formatting edit.
 
 Every `steps` entry is a command a tester can paste verbatim from the ATP root
-(the directory holding the four repositories on macOS, /atp in the Linux
-image). Every `expected` entry is checkable without interpreting the tool's
+(/atp in the Linux image). Every `expected` entry is checkable without interpreting the tool's
 intent: an exact counter, an exit code, a literal substring.
+
+`eip` is the EIP feature number, set where a proof script (proofs/BTP-*-F<n>.py,
+copied into the image) or the feature list establishes which feature a scenario
+exercises. It is shown at the end of the Feature Name.
 """
 
 CRITICAL = "Critical feature"
@@ -17,47 +20,20 @@ INTERFACE = "User interface"
 DONE = "Done"
 IN_PROGRESS = "In progress"
 
-BOTH = "macOS + Linux"
+LINUX = "Linux (Docker)"
+
+# Where the test harness is published. The workbook is the only file delivered on the
+# Innovation platform: everything else a tester needs is fetched from this repository.
+ATP_REPO = "https://github.com/CoreTrace/ATP"
 
 # Prerequisite fragments reused across scenarios, so a change to the setup
 # contract does not have to be applied thirty times.
-PRE_BUILT = (
-    "ENV-01 (macOS) or ENV-02 (Linux) passed. All commands run from the ATP "
-    "root: the folder containing the four repositories on macOS, /atp inside "
-    "the Linux container."
-)
+PRE_BUILT = "ENV-02 passed. All commands run from /atp inside the container opened by ./atp.sh linux."
+
 PRE_PY = PRE_BUILT + " python3 >= 3.10 available."
 
 SCENARIOS = [
     # ------------------------------------------------------------------ ENV
-    dict(
-        id="ENV-01",
-        component="Environment",
-        name="Native build of the four tools on macOS",
-        category=CRITICAL,
-        platform="macOS",
-        status=DONE,
-        objective=(
-            "Obtain the four CoreTrace executables on macOS from a clean "
-            "checkout, using a single command."
-        ),
-        prerequisites=(
-            "macOS 14+ (Intel or Apple Silicon). Homebrew installed. "
-            "The four repositories cloned side by side in the ATP root."
-        ),
-        steps=[
-            "brew install cmake ninja llvm@20 cppcheck",
-            "./atp.sh doctor",
-            "./atp.sh build-macos",
-            "./atp.sh versions",
-        ],
-        expected=(
-            "`./atp.sh doctor` prints OK for cmake, ninja, git, python3, "
-            "cppcheck and LLVM 20. `build-macos` ends without a CMake or "
-            "compiler error. `versions` lists four lines and none of them "
-            "says `not built`; the coretrace line starts with `ctrace v`."
-        ),
-    ),
     dict(
         id="ENV-02",
         component="Environment",
@@ -71,34 +47,45 @@ SCENARIOS = [
             "local toolchain."
         ),
         prerequisites=(
-            "Docker Desktop or Docker Engine running, 25 GB free disk, "
-            "network access (the image installs LLVM 20 and CMake fetches "
-            "coretrace-compiler / coretrace-logger from GitHub). "
-            "First build takes 30-60 min."
+            'A macOS or Linux host (on Windows: WSL 2) with Docker Desktop or Docker '
+            'Engine running, at least 4 CPUs and 8 GB of memory given to Docker, 10 GB of'
+            ' free disk, git, and network access to GitHub and apt.llvm.org. Steps 1 to 4'
+            ' run on the host (README.md, section 2). Without git, download the repository'
+            ' from its GitHub page (Code, then Download ZIP), unzip it and start at step 2'
+            ' from the folder you get.'
+            ' The build took 6 min 30 s on an 8-core laptop; allow up to 30 min on a '
+            'slower machine or network.'
         ),
         steps=[
+            f"git clone {ATP_REPO}.git",
+            "cd ATP",
             "./atp.sh build-linux",
             "./atp.sh linux",
             "# inside the container:",
             "ls /atp",
+            "id -u",
+            "cat /atp/VERSIONS",
             "/atp/coretrace/build/ctrace --version",
         ],
         expected=(
-            "`docker build` ends with `naming to docker.io/library/"
-            "coretrace-atp:latest`. Inside the container `ls /atp` lists the "
-            "four repositories, the shell runs as uid 1000 (`ubuntu`), not "
-            "root, and `ctrace --version` prints the same tag as on the host, "
-            "e.g. `ctrace v0.74.0-12-g2fbd4a5`."
+            'Step 1 creates a folder named ATP that holds README.md and atp.sh. '
+            '`./atp.sh build-linux` ends with `==> done — open a shell with: ./atp.sh '
+            'linux`. Inside the container `ls /atp` lists the four repositories, '
+            '`datasets` and `VERSIONS`; `id -u` prints `1000` (the unprivileged `ubuntu` '
+            'account, not root); `cat /atp/VERSIONS` prints the four revisions listed in '
+            'the Info & Access tab; `ctrace --version` prints `ctrace '
+            'v0.85.0-109-g7de854e`.'
         ),
     ),
 
     # ---------------------------------------------------------------- STACK
     dict(
         id="STACK-01",
+        eip="F1",
         component="coretrace-stack-analyzer",
         name="Static stack size and call-chain propagation",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that the analyzer reports the local frame size of each "
@@ -121,10 +108,11 @@ SCENARIOS = [
     ),
     dict(
         id="STACK-02",
+        eip="F1",
         component="coretrace-stack-analyzer",
         name="Dynamic stack usage (VLA / alloca) and unknown propagation",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that a runtime-sized allocation is flagged as dynamic and "
@@ -147,10 +135,11 @@ SCENARIOS = [
     ),
     dict(
         id="STACK-03",
+        eip="F1",
         component="coretrace-stack-analyzer",
         name="Infinite recursion detection",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that unconditional self recursion is reported as an error, "
@@ -171,10 +160,11 @@ SCENARIOS = [
     ),
     dict(
         id="STACK-04",
+        eip="F1",
         component="coretrace-stack-analyzer",
         name="Stack pointer escape detection",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that the address of a local returned to the caller is "
@@ -193,10 +183,11 @@ SCENARIOS = [
     ),
     dict(
         id="STACK-05",
+        eip="F10",
         component="coretrace-stack-analyzer",
         name="Static stack-buffer overflow detection (F10)",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that an out-of-bounds write on a stack array is reported "
@@ -209,19 +200,21 @@ SCENARIOS = [
             "python3 -B BTP-STACK-ANALYZER-F10.py",
         ],
         expected=(
-            "The analyzer reports, in `vuln_off_by_one`, `potential stack "
-            "buffer overflow on variable 'buf' (size 10)` with the note "
-            "`index variable may go up to 10 (array last valid index: 9)`, and "
-            "`Diagnostics summary: info=0, warning=4, error=0`. The F10 proof "
-            "script ends with a green `PASS` line and exits 0."
+            'The analyzer reports, in `vuln_off_by_one`, `stack buffer overflow on '
+            "variable 'buf' (size 10)` with the note `index reaches 10 on every run of "
+            'the function that returns (array last valid index: 9)`, and `Diagnostics '
+            'summary: info=0, warning=4, error=0`. The F10 proof script prints `[F10] '
+            'BTP-STACK-ANALYZER-F10: PASS` as its first line (`PASS` in green), then its '
+            'evidence, and exits 0.'
         ),
     ),
     dict(
         id="STACK-06",
+        eip="F2",
         component="coretrace-stack-analyzer",
         name="Memory intrinsic overflow and aliasing (F2)",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that memcpy/memset writes larger than the destination "
@@ -234,20 +227,21 @@ SCENARIOS = [
             "python3 -B BTP-STACK-ANALYZER-F2.py",
         ],
         expected=(
-            "The first command reports `potential stack buffer overflow in "
-            "memcpy on variable 'buf'` with "
-            "`destination stack buffer size: 10 bytes` and "
-            "`requested 20 bytes to be copied/initialized`. The F2 proof "
-            "covers memcpy, memset, deep aliasing and const-correctness and "
-            "ends with `PASS`, exit 0."
+            'The first command reports `potential stack buffer overflow in memcpy on '
+            "variable 'buf'` with `destination stack buffer size: 10 bytes` and "
+            '`requested 20 bytes to be copied/initialized`. The F2 proof covers memcpy, '
+            'memset, deep aliasing and const-correctness: it prints `[F2] '
+            'BTP-STACK-ANALYZER-F2: PASS` as its first line, then one `PASS` per check, '
+            'and exits 0.'
         ),
     ),
     dict(
         id="STACK-07",
+        eip="F1",
         component="coretrace-stack-analyzer",
         name="Configurable stack limit",
         category=SECONDARY,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that the stack budget is configurable and that the "
@@ -267,10 +261,11 @@ SCENARIOS = [
     ),
     dict(
         id="STACK-08",
+        eip="F5",
         component="coretrace-stack-analyzer",
         name="Human, JSON and SARIF reporting (F5)",
         category=INTERFACE,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that the same analysis is available in a readable CLI "
@@ -287,18 +282,22 @@ SCENARIOS = [
             "python3 -B BTP-STACK-ANALYZER-F5.py",
         ],
         expected=(
-            "`JSON_OK` is printed. The SARIF line prints "
-            "`coretrace-stack-analyzer 5`. The F5 proof runs the three "
-            "formats over three fixtures, confirms diagnostic counts match "
-            "across formats, and ends with `PASS`, exit 0."
+            '`JSON_OK` is printed. The SARIF line prints `coretrace-stack-analyzer 5`: '
+            'the four warnings shown by step 2, plus one info-level diagnostic that '
+            '`--warnings-only` hides there. The F5 proof runs the three formats over '
+            'three fixtures and confirms diagnostic counts match across formats: it '
+            'prints `[F5] BTP-STACK-ANALYZER-F5: PASS` as its first line, then about a '
+            'thousand lines of raw output as evidence — scroll back up to read that first'
+            ' line. Exit 0.'
         ),
     ),
     dict(
         id="STACK-09",
+        eip="F8",
         component="coretrace-stack-analyzer",
         name="Itanium ABI mangling and demangling (F8)",
         category=SECONDARY,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that C++ symbols are shown both raw and demangled with "
@@ -314,12 +313,13 @@ SCENARIOS = [
             "python3 -B BTP-STACK-ANALYZER-F8.py",
         ],
         expected=(
-            "Default human output shows both forms on one line, e.g. "
-            "`_ZN12demo_symbols17scalar_parametersEidc "
-            "demo_symbols::scalar_parameters(int, double, char)`. With "
-            "`--demangle` only the readable signature remains. JSON prints "
-            "the raw symbol `_ZN12demo_symbols17scalar_parametersEidc`. The "
-            "F8 proof ends with `PASS`, exit 0."
+            'Default human output shows both forms on one line, e.g. '
+            '`_ZN12demo_symbols17scalar_parametersEidc '
+            'demo_symbols::scalar_parameters(int, double, char)`. With `--demangle` only '
+            'the readable signature remains. JSON prints the raw symbol '
+            '`_ZN12demo_symbols17scalar_parametersEidc`. The F8 proof prints `[F8] '
+            'BTP-STACK-ANALYZER-F8: PASS` as its first line, then the mangled and '
+            'demangled symbols it checked, and exits 0.'
         ),
     ),
     dict(
@@ -327,7 +327,7 @@ SCENARIOS = [
         component="coretrace-stack-analyzer",
         name="Clean source produces no diagnostic",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that a correct program is not flagged — the baseline "
@@ -349,28 +349,32 @@ SCENARIOS = [
         component="coretrace-stack-analyzer",
         name="False-positive regression corpus",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that the patterns that used to produce false positives "
             "(wrapper allocators, merged returns, vendor headers, Vulkan-style "
             "out-parameters) are still silent."
         ),
-        prerequisites=PRE_BUILT + " Shell is bash or zsh. The datasets/ folder of\n            the ATP appendix sits next to the repositories.",
+        prerequisites=(
+            'ENV-02 passed. Run from /atp inside the container (its shell is bash). The '
+            'list of fixtures is /atp/datasets/stack-no-false-positive.txt, so '
+            '../datasets/ resolves from the analyzer repository.'
+        ),
         steps=[
             "cd coretrace-stack-analyzer",
             "grep -v '^#' ../datasets/stack-no-false-positive.txt | grep -v '^$' | "
-            "while read f; do n=$(./build/stack_usage_analyzer \"$f\" --warnings-only "
-            "2>/dev/null | grep -c '!!'); echo \"$n $f\"; done",
+            "while read f; do out=$(./build/stack_usage_analyzer \"$f\" --warnings-only 2>&1); "
+            "rc=$?; n=$(printf '%s\\n' \"$out\" | grep -c '!!'); echo \"$n exit=$rc $f\"; done",
         ],
         expected=(
-            "15 lines, every one starting with `0`. Any line starting with a "
-            "non-zero count is a false-positive regression: report the file "
-            "name in Feedback. (The rest of test/false-positive-repro/ is not "
-            "checked here: those fixtures reproduce one false positive while "
-            "still containing a real defect, so they legitimately emit "
-            "diagnostics. STACK-12 checks them against the expectations "
-            "embedded in each file.)"
+            '15 lines, every one starting with `0 exit=0`. A line starting with a '
+            'non-zero count is a false-positive regression; a line showing a non-zero '
+            'exit is a file the analyzer could not analyse. Either way report the file '
+            'name in Feedback. (The rest of test/false-positive-repro/ is not checked '
+            'here: those fixtures reproduce one false positive while still containing a '
+            'real defect, so they legitimately emit diagnostics. STACK-12 checks them '
+            'against the expectations embedded in each file.)'
         ),
     ),
     dict(
@@ -378,24 +382,23 @@ SCENARIOS = [
         component="coretrace-stack-analyzer",
         name="Full regression suite, including the SMT pass",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Run the whole fixture suite twice — once with the default "
             "engine, once with SMT refinement on the z3 backend — and check "
             "that both agree with the expectations embedded in the fixtures."
         ),
-        prerequisites=PRE_PY + " Takes 5-20 min depending on the machine.",
+        prerequisites=PRE_PY + " Takes about one minute on 8 cores.",
         steps=[
             "cd coretrace-stack-analyzer",
             "python3 -u run_test.py --jobs 8",
         ],
         expected=(
-            "The run ends with `All tests passed.` and "
-            "`Passed N/N tests.` with no failure — 1711/1711 as of "
-            "coretrace-stack-analyzer v0.19.0. Exit code 0. The report "
-            "includes `(smt-z3)` lines, proving the SMT pass ran and did not "
-            "change the verdicts."
+            'The run ends with `All tests passed.` and `Passed N/N tests.` with no '
+            'failure — 2916/2916 at the revision under test. Exit code 0. The report '
+            'includes `(smt-z3)` lines, proving the SMT pass ran and did not change the '
+            'verdicts.'
         ),
     ),
     dict(
@@ -403,7 +406,7 @@ SCENARIOS = [
         component="coretrace-stack-analyzer",
         name="CI adapter: artifacts and policy gate",
         category=SECONDARY,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that the CI wrapper exports JSON and SARIF artifacts and "
@@ -434,7 +437,7 @@ SCENARIOS = [
         component="coretrace-stack-analyzer",
         name="Error handling on invalid input",
         category=SECONDARY,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that a missing file and an unknown option are refused "
@@ -458,13 +461,113 @@ SCENARIOS = [
         ),
     ),
 
+    dict(
+        id="STACK-15",
+        eip="F1",
+        component="coretrace-stack-analyzer",
+        name="ABI analysis mode",
+        category=SECONDARY,
+        platform=LINUX,
+        status=DONE,
+        objective=(
+            "Check that the second analysis mode is selectable and accounts "
+            "for the frame differently from the default IR mode."
+        ),
+        prerequisites=PRE_PY,
+        steps=[
+            "cd coretrace-stack-analyzer",
+            "./build/stack_usage_analyzer test/local-storage/c/stack-callee-caller.c "
+            "--format=json | python3 -c \"import sys,json;d=json.load(sys.stdin);"
+            "print(d['meta']['mode'],[(f['name'],f['localStack']) for f in d['functions']])\"",
+            "./build/stack_usage_analyzer test/local-storage/c/stack-callee-caller.c "
+            "--mode=abi --format=json | python3 -c \"import sys,json;d=json.load(sys.stdin);"
+            "print(d['meta']['mode'],[(f['name'],f['localStack']) for f in d['functions']])\"",
+        ],
+        expected=(
+            "The first line starts with `IR` and reports `bar` and `mano` with "
+            "`localStack` 0. The second starts with `ABI` and reports the same "
+            "two functions with `localStack` 32 — the ABI mode adds the "
+            "caller-saved area the IR view does not model. `foo` is identical "
+            "in both. A run where both modes print the same numbers means "
+            "`--mode` was ignored."
+        ),
+    ),
+    dict(
+        id="STACK-16",
+        component="coretrace-stack-analyzer",
+        name="Whole-project analysis from compile_commands.json",
+        category=CRITICAL,
+        platform=LINUX,
+        status=DONE,
+        objective=(
+            "Check the way the analyzer is meant to be used on a real "
+            "codebase: read a compile database, analyse every translation "
+            "unit it lists, and aggregate one summary — here the analyzer "
+            "analysing its own source."
+        ),
+        prerequisites=PRE_BUILT + " Takes about 1 minute on 8 cores.",
+        steps=[
+            "cd coretrace-stack-analyzer",
+            "./build/stack_usage_analyzer --compile-commands=build/compile_commands.json "
+            "--analysis-profile=fast --exclude-dir=build/_deps --warnings-only",
+        ],
+        expected=(
+            'The run ends with a single aggregate line of the form `Total diagnostics '
+            'summary: info=0, warning=<n>, error=0 (across <m> files)` — observed '
+            '`warning=6` across 53 files. Those two numbers depend on the platform and '
+            'are not the check. What must hold: several dozen files analysed in one '
+            'invocation, `error=0` (the project keeps its own CI gate green), and no line'
+            ' starting with `Failed to analyze`.'
+        ),
+    ),
+
+    dict(
+        id='STACK-17',
+        component='coretrace-stack-analyzer',
+        name='Security diagnostics across the fifteen categories of the corpus',
+        category=CRITICAL,
+        platform=LINUX,
+        status=DONE,
+        objective=(
+            'Check that the analyzer reports the defect each category of the security '
+            'corpus is built around, beyond stack overflows: injection, format strings, '
+            'integer overflows, null dereferences, out-of-bounds reads, resource '
+            'lifetime, TOCTOU and others.'
+        ),
+        prerequisites=PRE_PY + " Shell is bash.",
+        steps=[
+            'cd coretrace-stack-analyzer',
+            'for f in test/security/*/*.c; do printf \'%s: \' "${f#test/security/}"; ./build/stack_usage_analyzer "$f" --resource-model=models/resource-lifetime/generic.txt --format=json 2>/dev/null | python3 -c "import sys,json;print(\' \'.join(sorted({d[\'ruleId\'] for d in json.load(sys.stdin)[\'diagnostics\'] if d[\'severity\']!=\'INFO\'})))"; done',
+        ],
+        expected=(
+            '24 lines, one per file, each giving the rules reported as warnings or '
+            'errors. Every category shows its own rule: buffer-overflow '
+            '`StackBufferOverflow.EveryRun`; command-injection '
+            '`CommandInjection.NonLiteralCommand`; format-string '
+            '`FormatString.NonLiteral`; integer-overflow '
+            '`IntegerOverflow.SignedArithmetic`; memory-leak '
+            '`ResourceLifetime.MissingRelease`; null-dereference '
+            '`NullPointerDereference`; oob-read `OutOfBoundsRead.HeapIndex` or '
+            '`OutOfBoundsRead.MissingNullTerminator`; sizeof-pitfall `SizeofPitfall`; '
+            'stack-escape `StackPointerEscape`; toctou `TOCTOU.PathCheckThenUse`; '
+            'type-confusion `TypeConfusion.IncompatibleStructView`; uninitialized '
+            '`UninitializedLocalRead`; unsafe-functions `UnsafeFunction.DeprecatedGets`; '
+            'use-after-free `ResourceLifetime.UseAfterRelease`; variadic-mismatch '
+            '`VariadicFormatMismatch`. Two oob-read files, heap-index-masked.c and '
+            'heap-index-modulo.c, are safe variants and print nothing after their name. A'
+            ' Python `Traceback` on a line means the analyzer could not analyse that '
+            'file. The `--resource-model` option is what makes the memory-leak and '
+            'use-after-free categories report.'
+        ),
+    ),
+
     # ----------------------------------------------------------------- CONC
     dict(
         id="CONC-01",
         component="coretrace-concurrency-analyzer",
         name="Data race on an unsynchronised global",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that concurrent unprotected access to a shared global is "
@@ -484,13 +587,14 @@ SCENARIOS = [
             "file:line:column, and `Diagnostics summary: info=0, warning=0, "
             "error=1`."
         ),
+        eip="F12",
     ),
     dict(
         id="CONC-02",
         component="coretrace-concurrency-analyzer",
         name="Thread handle never joined or detached",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that a joinable thread leaving scope without join or "
@@ -514,13 +618,14 @@ SCENARIOS = [
             "run, where every thread is joined, reports "
             "`info=0, warning=0, error=0`."
         ),
+        eip="F12",
     ),
     dict(
         id="CONC-03",
         component="coretrace-concurrency-analyzer",
         name="Deadlock through lock-order inversion",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that two threads taking the same two mutexes in opposite "
@@ -539,13 +644,14 @@ SCENARIOS = [
             "'lockA'` note and a `conflicting order: acquire 'lockA' while "
             "holding 'lockB'` note, and `error=1`."
         ),
+        eip="F12",
     ),
     dict(
         id="CONC-04",
         component="coretrace-concurrency-analyzer",
         name="Deadlock through a three-lock cycle",
         category=SECONDARY,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that a cycle spanning three mutexes across three functions "
@@ -563,47 +669,44 @@ SCENARIOS = [
             "first_lock->second_lock, second_lock->third_lock and "
             "third_lock->first_lock, and `error=1`."
         ),
+        eip="F12",
     ),
     dict(
         id="CONC-05",
         component="coretrace-concurrency-analyzer",
         name="No false positive on correctly synchronised code",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that code protected by lock_guard, atomics, a condition "
             "variable or C++20 jthread auto-join produces no diagnostic."
         ),
-        prerequisites=PRE_BUILT + " Shell is bash or zsh.",
+        prerequisites=(
+            'ENV-02 passed. Run from /atp inside the container (its shell is bash). The '
+            'list of fixtures is /atp/datasets/conc-no-false-positive.txt.'
+        ),
         steps=[
-            "cd coretrace-concurrency-analyzer",
-            "n=0; bad=0; for f in tests/fixtures/concurrency/*/*_no_fp.* "
-            "tests/fixtures/concurrency/*/*_no_diagnostic.* "
-            "tests/fixtures/concurrency/*/*_no_missing_join.*; do n=$((n+1)); "
-            "s=$(./build/coretrace_concurrency_analyzer \"$f\" --analyze 2>/dev/null | tail -1); "
-            "case \"$s\" in *error=0*) ;; *) bad=$((bad+1)); echo \"BAD $s | $f\";; esac; "
-            "done; echo \"checked=$n bad=$bad\"",
-            "./build/coretrace_concurrency_analyzer "
-            "tests/fixtures/concurrency-cxx20/cpp_jthread_auto_join_no_missing_join.cpp "
-            "--analyze -- -std=c++20 | tail -1",
+            'cd coretrace-concurrency-analyzer',
+            'n=0; bad=0; while read f; do n=$((n+1)); s=$(./build/coretrace_concurrency_analyzer "$f" --analyze 2>&1 | tail -1); case "$s" in *"info=0, warning=0, error=0"*) ;; *) bad=$((bad+1)); echo "BAD $s | $f";; esac; done < <(grep -v \'^#\' ../datasets/conc-no-false-positive.txt | grep -v \'^$\'); echo "checked=$n bad=$bad"',
+            './build/coretrace_concurrency_analyzer tests/fixtures/concurrency-cxx20/cpp_jthread_auto_join_no_missing_join.cpp --analyze -- -std=c++20 | tail -1',
         ],
         expected=(
-            "The loop prints `checked=28 bad=0` and no `BAD` line. Each `BAD` "
-            "line is a false positive: report the file name in Feedback. The "
-            "C++20 jthread case prints `Diagnostics summary: info=0, "
-            "warning=0, error=0` — a jthread joins in its destructor, so it "
-            "must not be reported as a missing join. (The `-- -std=c++20` "
-            "suffix is required: without it clang defaults to an older "
-            "standard and the fixture fails to compile.)"
+            'The loop prints `checked=28 bad=0` and no `BAD` line. Each `BAD` line is a '
+            'false positive, or a file that could not be analysed: report the file name '
+            'in Feedback. The C++20 jthread case prints `Diagnostics summary: info=0, '
+            'warning=0, error=0` — a jthread joins in its destructor, so it must not be '
+            'reported as a missing join. (The `-- -std=c++20` suffix is required: without'
+            ' it clang defaults to an older standard and the fixture fails to compile.)'
         ),
+        eip="F12",
     ),
     dict(
         id="CONC-06",
         component="coretrace-concurrency-analyzer",
         name="Rule selection",
         category=SECONDARY,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that --rules restricts the analysis to the requested "
@@ -623,13 +726,14 @@ SCENARIOS = [
             "With `--rules=deadlock-lock-order` the same file reports "
             "`error=1`."
         ),
+        eip="F12",
     ),
     dict(
         id="CONC-07",
         component="coretrace-concurrency-analyzer",
         name="Human, JSON and SARIF reporting",
         category=INTERFACE,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that concurrency diagnostics are available in the three "
@@ -637,25 +741,28 @@ SCENARIOS = [
         ),
         prerequisites=PRE_PY,
         steps=[
-            "cd coretrace-concurrency-analyzer",
-            "F=tests/fixtures/concurrency/data-race/data_race_basic.c",
-            "./build/coretrace_concurrency_analyzer $F --analyze --format=json | python3 -m json.tool > /dev/null && echo JSON_OK",
-            "./build/coretrace_concurrency_analyzer $F --analyze --format=sarif > /tmp/conc07.sarif",
-            "python3 -c \"import json;d=json.load(open('/tmp/conc07.sarif'));r=d['runs'][0];print(r['tool']['driver']['name'],len(r['results']),r['results'][0]['ruleId'])\"",
+            'cd coretrace-concurrency-analyzer',
+            'F=tests/fixtures/concurrency/data-race/data_race_basic.c',
+            './build/coretrace_concurrency_analyzer $F --analyze --format=json | python3 -m json.tool > /dev/null && echo JSON_OK',
+            './build/coretrace_concurrency_analyzer $F --analyze --format=json | python3 -c "import sys,json;d=json.load(sys.stdin)[\'diagnostics\'][0];print(d[\'ruleId\'],d[\'cwe\'],d[\'confidence\'],sorted(d[\'details\']))"',
+            './build/coretrace_concurrency_analyzer $F --analyze --format=sarif > /tmp/conc07.sarif',
+            'python3 -c "import json;d=json.load(open(\'/tmp/conc07.sarif\'));r=d[\'runs\'][0];print(r[\'tool\'][\'driver\'][\'name\'],len(r[\'results\']),r[\'results\'][0][\'ruleId\'])"',
         ],
         expected=(
-            "`JSON_OK` is printed. The last command prints "
-            "`coretrace-concurrency-analyzer 1 DataRaceGlobal`. The JSON "
-            "diagnostic carries `cwe`, `confidence`, `notes` and "
-            "`properties` fields."
+            "`JSON_OK` is printed. Step 4 prints `DataRaceGlobal CWE-362 HIGH ['message',"
+            " 'notes', 'properties']`: the JSON diagnostic carries its rule, CWE, "
+            'confidence, notes and properties. The last command prints '
+            '`coretrace-concurrency-analyzer 1 DataRaceGlobal`: the SARIF report holds '
+            'the same single diagnostic.'
         ),
+        eip="F12",
     ),
     dict(
         id="CONC-08",
         component="coretrace-concurrency-analyzer",
         name="Unit, architecture and golden-output test suites",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Run the repository's own suites: CTest for the C++ unit and "
@@ -663,35 +770,27 @@ SCENARIOS = [
             "human output."
         ),
         prerequisites=(
-            PRE_PY + " pytest available. It is already installed in the Linux "
-            "image, so inside the container skip step 2 and call `python3 -m "
-            "pytest` directly. On macOS, Homebrew's Python refuses `pip "
-            "install` (PEP 668), hence the virtualenv in step 2."
+            'ENV-02 passed. Run from /atp inside the container. Python and pytest are '
+            'preinstalled. Takes about 3 minutes.'
         ),
-        steps=[
-            "python3 -m venv .venv-atp && ./.venv-atp/bin/pip install pytest   # macOS only, once",
-            "cd coretrace-concurrency-analyzer",
-            "ctest --test-dir build --output-on-failure",
-            "CORETRACE_ANALYZER_BIN=./build/coretrace_concurrency_analyzer "
-            "../.venv-atp/bin/python -m pytest tests/integration/cli/test_human_output_golden.py -q",
-        ],
+        steps=['cd coretrace-concurrency-analyzer',
+         'ctest --test-dir build --output-on-failure',
+         'CORETRACE_ANALYZER_BIN=./build/coretrace_concurrency_analyzer python3 -m pytest '
+         'tests/integration/cli/test_human_output_golden.py -q'],
         expected=(
-            "CTest prints `100% tests passed, 0 tests failed out of N` — N "
-            "is 4 without pytest on the host, 5 with it (the golden suite is "
-            "registered only when CMake finds Python3), and is 5 in the Linux "
-            "image. pytest prints `4 passed`; each fixture's actual human "
-            "output matches its embedded EXPECT-HUMAN-DIAGNOSTICS block. "
-            "Do NOT run the whole `tests/integration/cli` directory: "
-            "`test_analyzer.py` needs the separate coretrace-testkit package "
-            "and will error on collection."
+            'CTest prints `100% tests passed, 0 tests failed out of 20`. pytest prints '
+            '`10 passed`; each fixture matches its embedded EXPECT-HUMAN-DIAGNOSTICS '
+            'block. Do NOT run the whole tests/integration/cli directory: '
+            'test_analyzer.py requires the separate coretrace-testkit package.'
         ),
+        eip="F12",
     ),
     dict(
         id="CONC-09",
         component="coretrace-concurrency-analyzer",
         name="Error handling on invalid input",
         category=SECONDARY,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that a missing file and a syntactically invalid source are "
@@ -710,15 +809,88 @@ SCENARIOS = [
             "source yields the clang parse errors and `exit=1`. Neither run "
             "crashes."
         ),
+        eip="F12",
+    ),
+
+    dict(
+        id="CONC-10",
+        component="coretrace-concurrency-analyzer",
+        name="Public C++ API through an external consumer",
+        category=SECONDARY,
+        platform=LINUX,
+        status=DONE,
+        objective=(
+            "Check that the analyzer is consumable as a library by another "
+            "CMake project, which is how CoreTrace is meant to be embedded."
+        ),
+        prerequisites=(
+            'ENV-02 passed. Run from /atp inside the container. LLVM 20 and CMake are '
+            'provided by the image. The consumer reuses the coretrace-compiler and '
+            "coretrace-log sources already present in the analyzer's build tree "
+            '(build/_deps), so no network access is needed. The build takes about 30 '
+            'seconds on 8 cores.'
+        ),
+        steps=[
+            'cd coretrace-concurrency-analyzer',
+            'P=$(llvm-config --prefix); D=$PWD/build/_deps; cmake -S extern-project -B extern-project/build -G Ninja -DFETCHCONTENT_SOURCE_DIR_CC=$D/cc-src -DFETCHCONTENT_SOURCE_DIR_CORETRACE_LOGGER=$D/coretrace_logger-src -DLLVM_DIR=$P/lib/cmake/llvm -DClang_DIR=$P/lib/cmake/clang -DCLANG_EXECUTABLE=$P/bin/clang -DCLANG_RESOURCE_DIR=$($P/bin/clang -print-resource-dir)',
+            'cmake --build extern-project/build -j8',
+            './extern-project/build/concurrency_consumer tests/fixtures/concurrency/data-race/data_race_basic.c',
+        ],
+        expected=(
+            'Step 2 prints `-- Using local concurrency analyzer source` and ends with `--'
+            ' Build files have been written to: '
+            '/atp/coretrace-concurrency-analyzer/extern-project/build`. Step 3 compiles '
+            'and links without error. Step 4 prints `Consumer compilation succeeded in bc'
+            ' mode, payload=<n> bytes` (4524 observed): a separate CMake project linked '
+            'the analyzer library and compiled a source through its public API.'
+        ),
+        eip="F12",
+    ),
+
+    dict(
+        id='CONC-11',
+        eip='F12',
+        component='coretrace-concurrency-analyzer',
+        name='The eight other concurrency rules',
+        category=CRITICAL,
+        platform=LINUX,
+        status=DONE,
+        objective=(
+            'Check each concurrency rule that CONC-01 to CONC-04 do not cover: every '
+            'rule, selected alone, reports its defect on a fixture written for it.'
+        ),
+        prerequisites=PRE_BUILT,
+        steps=[
+            'cd coretrace-concurrency-analyzer',
+            './build/coretrace_concurrency_analyzer tests/fixtures/concurrency/condition-variable/condition_variable_spurious.c --analyze --rules=condition-wait | grep -E "ruleId|summary"',
+            './build/coretrace_concurrency_analyzer tests/fixtures/concurrency/process/fork_after_thread_creation.c --analyze --rules=fork-after-thread | grep -E "ruleId|summary"',
+            './build/coretrace_concurrency_analyzer tests/fixtures/concurrency/process/fork_without_wait.c --analyze --rules=unreaped-child | grep -E "ruleId|summary"',
+            './build/coretrace_concurrency_analyzer tests/fixtures/concurrency/missing-join/missing_join_multiple.c --analyze --rules=thread-arg-escape | grep -E "ruleId|summary"',
+            './build/coretrace_concurrency_analyzer tests/fixtures/concurrency/signal-handler/signal_mutex_deadlock.c --analyze --rules=unsafe-signal-handler | grep -E "ruleId|summary"',
+            './build/coretrace_concurrency_analyzer tests/fixtures/concurrency/atomic-ordering/publish_relaxed_load.c --analyze --rules=weak-publication | grep -E "ruleId|summary"',
+            './build/coretrace_concurrency_analyzer tests/fixtures/concurrency/use-after-free/use_after_free_callback.c --analyze --rules=thread-arg-freed | grep -E "ruleId|summary"',
+            './build/coretrace_concurrency_analyzer tests/fixtures/concurrency/thread-local/c_tls_dangling_ptr.c --analyze --rules=thread-local-escape | grep -E "ruleId|summary"',
+        ],
+        expected=(
+            'Each command prints one `ruleId:` line and one summary line. In order: '
+            '`ruleId: ConditionWaitWithoutPredicate`, `ruleId: ForkAfterThreadCreation`, '
+            '`ruleId: UnreapedChildProcess`, `ruleId: ThreadArgumentEscapesFrame`, '
+            '`ruleId: UnsafeSignalHandler`, `ruleId: WeakPublicationOrdering`, `ruleId: '
+            'ThreadArgumentFreedEarly`, `ruleId: ThreadLocalOutlivesThread`. The summary '
+            'is `Diagnostics summary: info=0, warning=0, error=1` for six of them, and '
+            '`Diagnostics summary: info=0, warning=1, error=0` for the third '
+            '(unreaped-child) and the sixth (weak-publication), which are warnings.'
+        ),
     ),
 
     # ------------------------------------------------------------------ RUN
     dict(
         id="RUN-01",
+        eip="F4",
         component="coretrace-runtime-analyzer",
         name="Instrumented build, execution and event collection (F4)",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check the minimal end-to-end path: compile a source with "
@@ -731,8 +903,8 @@ SCENARIOS = [
             "python3 -B BTP-RUNTIME-ANALYZER_F4.py",
         ],
         expected=(
-            "The script reports `binary_generated=OK`, "
-            "`binary_executable=OK`, `coretrace_lines_collected=OK`, "
+            "The script reports `instrumented_binary_generated=OK`, "
+            "`instrumented_binary_executable=OK`, `coretrace_lines_collected=OK`, "
             "`entry_events_collected=OK`, `exit_events_collected=OK`, then "
             "`[F4] result=OK`, exit 0. The collection block shows "
             "`entry_events=2` and `exit_events=2`."
@@ -740,10 +912,11 @@ SCENARIOS = [
     ),
     dict(
         id="RUN-02",
+        eip="F11",
         component="coretrace-runtime-analyzer",
         name="Heap buffer overflow detected at runtime (F11)",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that bounds instrumentation catches an out-of-bounds write "
@@ -756,92 +929,128 @@ SCENARIOS = [
             "python3 -B BTP-RUNTIME-ANALYZER_F11.py --no-color",
         ],
         expected=(
-            "Output contains `ct: heap-buffer-overflow WRITE of size 1` with "
-            "an `access=...:18:15` line, an `alloc_site=...:6:63` line and "
-            "`alloc_size=8`. Status lines "
-            "`heap_buffer_overflow_reported=OK`, `write_overflow_reported=OK`, "
-            "`bounds_errors_collected=OK`, `program_continued_after_detection"
-            "=OK`, then a final `PASS`, exit 0."
-        ),
-    ),
-    dict(
-        id="RUN-03",
-        component="coretrace-runtime-analyzer",
-        name="Allocation lifecycle tracing",
-        category=CRITICAL,
-        platform=BOTH,
-        status=DONE,
-        objective=(
-            "Check that malloc, realloc and free are traced with sizes and "
-            "call sites, and that an allocation with no surviving reference "
-            "is flagged as unreachable."
-        ),
-        prerequisites=PRE_BUILT,
-        steps=[
-            "cd coretrace-runtime-analyzer",
-            "./build/runtime-analyzer -o /tmp/atp-alloc --show-events -- test/ct_alloc_basic.c",
-        ],
-        expected=(
-            "The event stream shows `tracing-malloc` with a "
-            "`site=ct_alloc_basic.c:...` reference, a `tracing-realloc` block "
-            "with `status : moved` plus old/new sizes, a `tracing-free`, and a "
-            "`tracing-malloc-unreachable` block with `status : unreachable`. "
-            "The summary reports `allocation_events` >= 6 (6 on macOS, 8 on "
-            "Linux — the count depends on the platform allocator, only the "
-            "presence of the four event kinds is contractual)."
-        ),
-    ),
-    dict(
-        id="RUN-04",
-        component="coretrace-runtime-analyzer",
-        name="Virtual dispatch (vtable) tracing",
-        category=SECONDARY,
-        platform=BOTH,
-        status=IN_PROGRESS,
-        objective=(
-            "Check that virtual calls are traced with the this pointer, the "
-            "vtable pointer and the resolved dynamic type, and that a call on "
-            "a freed object shows the type as unknown."
-        ),
-        prerequisites=PRE_BUILT,
-        steps=[
-            "cd coretrace-runtime-analyzer",
-            "./build/runtime-analyzer -o /tmp/atp-vt --show-events -- --ct-modules=all test/ct_vtable_diag_freed.cpp",
-        ],
-        expected=(
-            "Two `[VTABLE]` blocks. The first, on the live object, shows "
-            "`type    : Derived` with a non-null `vtable` address. The second, "
-            "after the object is freed, shows `type : <unknown>` for the same "
-            "`this` pointer — the signature of a use-after-free virtual call."
+            'Output contains `ct: heap-buffer-overflow WRITE of size 1` with an '
+            '`access=...:18:15` line, an `alloc_site=...:6:63` line and `alloc_size=8`. '
+            'Status lines `runtime_analyzer_exit_reports_finding=OK` (the analyzer exits '
+            '1 when it reports a finding), `heap_buffer_overflow_reported=OK`, '
+            '`write_overflow_reported=OK`, `bounds_errors_collected=OK`, '
+            '`program_continued_after_detection=OK`, then a final `PASS`. The script '
+            'itself exits 0.'
         ),
     ),
     dict(
         id="RUN-05",
+        eip="F4",
         component="coretrace-runtime-analyzer",
         name="Batch mode over a test directory",
         category=SECONDARY,
-        platform=BOTH,
-        status=IN_PROGRESS,
+        platform=LINUX,
+        status=DONE,
         objective=(
             "Check that every source under a directory is compiled and run as "
             "its own instrumented binary, and that per-file results are "
             "aggregated instead of the run stopping at the first failure."
         ),
-        prerequisites=PRE_BUILT + " Takes several minutes.",
+        prerequisites=PRE_BUILT,
         steps=[
-            "cd coretrace-runtime-analyzer",
-            "mkdir -p /tmp/atp-rt-src && cp test/ct_alloc_basic.c test/ct_autofree_local.c "
-            "test/ct_new_delete.cpp /tmp/atp-rt-src/",
-            "./build/runtime-analyzer --test-dir /tmp/atp-rt-src --output-dir /tmp/atp-rt-out",
+            'cd coretrace-runtime-analyzer',
+            'mkdir -p /tmp/atp-rt-src && cp test/ct_alloc_basic.c test/ct_autofree_local.c test/ct_new_delete.cpp /tmp/atp-rt-src/',
+            './build/runtime-analyzer --test-dir /tmp/atp-rt-src --output-dir /tmp/atp-rt-out; echo "exit=$?"',
         ],
         expected=(
-            "The batch block reports `tests=3` and `compile_failures=0`, and "
-            "one `[RUNTIME]` line per source naming the generated binary. "
-            "KNOWN LIMITATION (macOS only, open issue): the instrumented "
-            "binaries abort at process teardown with `libc++abi: mutex lock "
-            "failed`, so `runtime_failures=3` and `exit_code=134`. Collection "
-            "is unaffected. On Linux the same command reports "
-            "`runtime_failures=0`. Report only deviations from this."
+            'The batch block reports `tests=3`, `compile_failures=0` and '
+            '`runtime_failures=0`. Each source has a `[PASS]` line naming the generated '
+            'binary and `exit_code=0`. Under each file the analyzer lists the `memory '
+            'leak` warnings it found in that program. The command ends with `exit=1`: the'
+            ' analyzer itself exits 1 because it reports those leaks, even though each '
+            'test program exits 0. That exit code is expected here, it is not a failure '
+            'of the batch.'
+        ),
+    ),
+
+
+    dict(
+        id="RUN-07",
+        eip="F3",
+        component="coretrace-runtime-analyzer",
+        name="Instrumentation modules: trace, alloc, bounds",
+        category=CRITICAL,
+        platform=LINUX,
+        status=DONE,
+        objective=(
+            "Check that each instrumentation module of the CoreTrace compiler can "
+            "be switched on by itself, and that each one produces its own kind of "
+            "runtime event."
+        ),
+        prerequisites=PRE_BUILT,
+        steps=[
+            "cd coretrace-runtime-analyzer",
+            "./build/runtime-analyzer -o /tmp/f3-trace -- --ct-modules=trace "
+            "test/examples/fixtures/hello.c; echo \"exit=$?\"",
+            "./build/runtime-analyzer -o /tmp/f3-alloc -- --ct-modules=alloc "
+            "test/ct_alloc_basic.c; echo \"exit=$?\"",
+            "./build/runtime-analyzer -o /tmp/f3-bounds -- --ct-modules=alloc,bounds "
+            "test/findings/heap_overflow_write.c; echo \"exit=$?\"",
+        ],
+        expected=(
+            "First run (trace): `entry_events=1`, `exit_events=1`, `allocation_events=0`, "
+            "then `exit=0`. Second run (alloc): `entry_events=0`, `allocation_events=8`, a "
+            "`memory leak of 24 bytes` warning, then `exit=1` — the analyzer exits 1 when "
+            "it reports a finding. Third run (alloc and bounds): `bounds_errors=1` and "
+            "`test/findings/heap_overflow_write.c:8:15: error: heap-buffer-overflow WRITE "
+            "of size 4 [heap-buffer-overflow, CWE-122]`, then `exit=1`; its `exit_code=134` "
+            "line is the instrumented program being stopped at the overflow. Each module "
+            "leaves the counters of the others at zero."
+        ),
+    ),
+
+    dict(
+        id='RUN-08',
+        eip='F11',
+        component='coretrace-runtime-analyzer',
+        name='Memory defects found at runtime',
+        category=CRITICAL,
+        platform=LINUX,
+        status=DONE,
+        objective=(
+            'Check that the runtime analyzer finds each kind of memory defect it knows, '
+            'names it with its CWE, and stays silent on a correct program.'
+        ),
+        prerequisites=PRE_BUILT + " Shell is bash.",
+        steps=[
+            'cd coretrace-runtime-analyzer',
+            'for f in test/findings/*.c; do out=$(./build/runtime-analyzer -o /tmp/atp-finding -- --ct-modules=alloc,bounds "$f" 2>&1); rc=$?; echo "$(basename "$f") exit=$rc $(printf \'%s\\n\' "$out" | grep -E \'error:|warning:\' | head -1)"; done',
+        ],
+        expected=(
+            'Seven lines. `double_free.c exit=1` with `[double-free, CWE-415]`; '
+            '`heap_overflow_read.c exit=1` with `READ of size 4 [heap-buffer-overflow, '
+            'CWE-125]`; `heap_overflow_write.c exit=1` with `WRITE of size 4 '
+            '[heap-buffer-overflow, CWE-122]`; `memory_leak.c exit=1` with `[memory-leak,'
+            ' CWE-401]`; `no_findings.c exit=0` with nothing after it; '
+            '`stack_overflow_write.c exit=1` with `[stack-buffer-overflow, CWE-121]`; '
+            '`use_after_free.c exit=1` with `[heap-use-after-free, CWE-416]`. The '
+            'analyzer exits 1 when it reports a finding and 0 when it finds none.'
+        ),
+    ),
+
+    dict(
+        id='RUN-09',
+        component='coretrace-runtime-analyzer',
+        name='Unit, API and command-line test suite',
+        category=CRITICAL,
+        platform=LINUX,
+        status=DONE,
+        objective=(
+            "Run the runtime analyzer's own test suite: unit tests, the library API, the "
+            'command line, the fixtures and the installed layout.'
+        ),
+        prerequisites=PRE_BUILT + " Takes about 30 seconds.",
+        steps=[
+            'cd coretrace-runtime-analyzer',
+            'ctest --test-dir build --output-on-failure',
+        ],
+        expected=(
+            '`100% tests passed, 0 tests failed out of 17`. Exit code 0.'
         ),
     ),
 
@@ -851,7 +1060,7 @@ SCENARIOS = [
         component="coretrace",
         name="CLI help and version",
         category=INTERFACE,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that the orchestrator documents its options and reports a "
@@ -864,108 +1073,10 @@ SCENARIOS = [
             "./build/ctrace --version",
         ],
         expected=(
-            "`--help` lists at least `--static`, `--dyn`, `--invoke`, "
-            "`--input`, `--sarif-format`, `--config`, `--ipc` and `--async`, "
-            "and ends with an Examples section. `--version` prints "
-            "`ctrace v<tag>`, e.g. `ctrace v0.74.0-12-g2fbd4a5`."
-        ),
-    ),
-    dict(
-        id="CORE-02",
-        component="coretrace",
-        name="Full static analysis pipeline",
-        category=CRITICAL,
-        platform=BOTH,
-        status=DONE,
-        objective=(
-            "Check that `--static` runs the whole static suite over a file "
-            "and prints a per-tool diagnostics summary."
-        ),
-        prerequisites=PRE_BUILT + " cppcheck installed and on PATH.",
-        steps=[
-            "cd coretrace",
-            "./build/ctrace --input tests/null_pointer.c --static",
-        ],
-        expected=(
-            "One `Diagnostics summary: info=..., warning=..., error=...` line "
-            "per tool, prefixed with the tool name in parentheses. The "
-            "`(ctrace_stack_analyzer)` line reports `error=1` and the analyzer "
-            "output above it contains `potential null pointer dereference`. "
-            "Exit code 0. NOTE: tools not compiled into this build "
-            "(flawfinder, tscancode, ikos — optional CMake features, OFF by "
-            "default) report `info=0, warning=0, error=0`; that is expected, "
-            "not a failure. The `(cppcheck)` line also reports all zeros on "
-            "both platforms — see the two defects documented in CORE-04 — so "
-            "`(ctrace_stack_analyzer)` is the only line carrying a meaningful "
-            "count today."
-        ),
-    ),
-    dict(
-        id="CORE-03",
-        component="coretrace",
-        name="Selective tool invocation",
-        category=CRITICAL,
-        platform=BOTH,
-        status=DONE,
-        objective=(
-            "Check that `--invoke` runs only the named analyzers, so a user "
-            "can pay for the checks they want."
-        ),
-        prerequisites=PRE_BUILT + " cppcheck installed and on PATH.",
-        steps=[
-            "cd coretrace",
-            "./build/ctrace --input tests/null_pointer.c --invoke ctrace_stack_analyzer",
-            "./build/ctrace --input tests/null_pointer.c --invoke cppcheck",
-        ],
-        expected=(
-            "The first run prints one summary line, "
-            "`(ctrace_stack_analyzer) ... error=1`, and no cppcheck output. "
-            "The second prints only `(cppcheck) ...`. Both exit 0. KNOWN "
-            "COSMETIC DEFECT (open issue): the progress line always reads "
-            "`Running ikos on <file>` regardless of the tool actually being "
-            "run; the tool that executes is the one named in the summary."
-        ),
-    ),
-    dict(
-        id="CORE-04",
-        component="coretrace",
-        name="Third-party analyzer integration (cppcheck)",
-        category=CRITICAL,
-        platform="macOS (Apple Silicon) only — see expected result",
-        status=IN_PROGRESS,
-        objective=(
-            "Check that an external analyzer is driven by CoreTrace and that "
-            "its findings are normalised into the CoreTrace summary."
-        ),
-        prerequisites=PRE_BUILT + " cppcheck installed and on PATH (`cppcheck --version`).",
-        steps=[
-            "cd coretrace",
-            "cppcheck --version",
-            "cppcheck tests/null_pointer.c",
-            "./build/ctrace --input tests/null_pointer.c --invoke cppcheck --verbose",
-        ],
-        expected=(
-            "On Apple Silicon macOS: cppcheck's own findings are printed "
-            "through, with file:line:column — `tests/null_pointer.c:8:6: "
-            "error: Null pointer dereference: ptr [nullPointer]` and "
-            "`:21:6: warning: ... [nullPointerOutOfMemory]`. Exit code 0. "
-            "TWO KNOWN DEFECTS, both open issues, both in "
-            "CppCheckToolImplementation "
-            "(include/Process/Tools/AnalysisTools.hpp). "
-            "(1) Not normalised: the `(cppcheck) Diagnostics summary:` line "
-            "always reads `info=0, warning=0, error=0`, even though cppcheck "
-            "just reported one error and one warning — its findings never "
-            "reach the CoreTrace summary, so a CI gate built on that summary "
-            "would miss them. "
-            "(2) Not portable: the tool spawns the hardcoded path "
-            "/opt/homebrew/bin/cppcheck instead of resolving cppcheck from "
-            "PATH, so on Linux — and on Intel macOS, where Homebrew lives in "
-            "/usr/local — the process never starts and no finding is printed "
-            "at all; the run still prints `Creating Linux process for "
-            "command: /opt/homebrew/bin/cppcheck`, while cppcheck invoked "
-            "directly at step 3 does find the dereference. "
-            "Testers: mark this scenario KO, quote what you saw, and do not "
-            "open a new anomaly for either defect."
+            '`--help` lists at least `--static`, `--dyn`, `--invoke`, `--input`, '
+            '`--sarif-format`, `--config`, `--fail-on`, `--ipc` and `--jobs`, and ends '
+            'with an Examples section. `--version` prints `ctrace v0.85.0-109-g7de854e`, '
+            'the revision under test.'
         ),
     ),
     dict(
@@ -973,50 +1084,40 @@ SCENARIOS = [
         component="coretrace",
         name="SARIF report file",
         category=INTERFACE,
-        platform=BOTH,
-        status=IN_PROGRESS,
+        platform=LINUX,
+        status=DONE,
         objective=(
             "Check that CoreTrace can write a valid SARIF report to a chosen "
             "path, for consumption by GitHub code scanning."
         ),
         prerequisites=PRE_PY,
         steps=[
-            "cd coretrace",
-            "python3 -c \"import json;c=json.load(open('config/tool-config.json'));"
-            "c['stack_analyzer']['output_format']='sarif';"
-            "c['analysis']['invoke']=['ctrace_stack_analyzer'];"
-            "json.dump(c,open('config/atp-sarif.json','w'),indent=2)\"",
-            "./build/ctrace --config config/atp-sarif.json --input tests/null_pointer.c "
-            "--report-file /tmp/atp-core.sarif",
-            "python3 -c \"import json;d=json.load(open('/tmp/atp-core.sarif'));"
-            "print(d['runs'][0]['tool']['driver']['name'],len(d['runs'][0]['results']))\"",
-            "rm -f config/atp-sarif.json",
+            'cd coretrace',
+            './build/ctrace --invoke ctrace_stack_analyzer --input tests/null_pointer.c --sarif-format --report-file /tmp/atp-core.sarif; echo "exit=$?"',
+            'python3 -c "import json;d=json.load(open(\'/tmp/atp-core.sarif\'));print(sorted(d),d[\'runs\'][0][\'tool\'][\'driver\'][\'name\'],len(d[\'runs\'][0][\'results\']))"',
         ],
         expected=(
-            "The last command prints `coretrace-stack-analyzer 1` and the "
-            "file has the SARIF top-level keys `version`, `$schema`, `runs`. "
-            "KNOWN GAP (open issue): the `--sarif-format` CLI flag currently "
-            "only affects the cppcheck/tscancode/flawfinder wrappers; the "
-            "stack analyzer's format is set through "
-            "`stack_analyzer.output_format` in the config file, which is what "
-            "this scenario uses. The config must live in `config/` because "
-            "model paths inside it are resolved relative to it."
+            'Step 2 ends with `Verdict: info=0, warning=1, error=1, fail-on=error (exit '
+            'code 2)` and `exit=2`: the analysed file holds an error-level defect, and 2 '
+            'is the exit code ctrace gives a CI job in that case, not a failure of the '
+            "scenario. Step 3 prints `['$schema', 'runs', 'version'] "
+            'ctrace_stack_analyzer 2`: the report is a SARIF document with its three '
+            'top-level keys, and it carries the two findings.'
         ),
+        eip="F5",
     ),
     dict(
         id="CORE-06",
         component="coretrace",
         name="HTTP server mode",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that CoreTrace can serve analyses over HTTP so a UI or a "
             "CI runner can drive it without spawning a process per request."
         ),
-        prerequisites=PRE_BUILT + " curl available. TCP port 8099 free. "
-                                  "In the Linux image, run both commands in the same container "
-                                  "(second terminal: `docker exec -it <id> bash`).",
+        prerequisites=PRE_BUILT + " curl is available in the image. TCP port 8099 free.",
         steps=[
             "cd coretrace",
             "./build/ctrace --ipc serve --serve-host 127.0.0.1 --serve-port 8099 "
@@ -1037,13 +1138,14 @@ SCENARIOS = [
             "`\"diagnostics_summary_total\"` object. The shutdown call prints "
             "`202` and the background server exits."
         ),
+        eip="F9",
     ),
     dict(
         id="CORE-07",
         component="coretrace",
         name="Server shutdown is token-protected",
         category=CRITICAL,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that the shutdown endpoint cannot be triggered without the "
@@ -1067,43 +1169,14 @@ SCENARIOS = [
             "is still serving after the two rejected calls and stops only "
             "after the third."
         ),
-    ),
-    dict(
-        id="CORE-08",
-        component="coretrace",
-        name="Asynchronous execution keeps results complete (F7)",
-        category=CRITICAL,
-        platform="macOS (Apple Silicon) only — blocked on Linux by CORE-04",
-        status=IN_PROGRESS,
-        objective=(
-            "Check that running the analyzers concurrently is faster than "
-            "running them in sequence and yields exactly the same diagnostics "
-            "— parallelism must not drop or duplicate findings."
-        ),
-        prerequisites=PRE_PY + " cppcheck installed and on PATH.",
-        steps=[
-            "cd coretrace",
-            "python3 -B tests/BTP-STACK-ANALYZER-F7",
-        ],
-        expected=(
-            "On Apple Silicon macOS: the script prints a `sync median`, an "
-            "`async median` and a `speedup` above 1.0 (~1.9x observed). The "
-            "`diagnostics` object is identical for the `sync` and `async` "
-            "keys, and so is the `diagnostic fingerprints` list — same file, "
-            "line, column, severity and message for every finding. Exit code "
-            "0. On Linux the script stops with "
-            "`FAIL: sync run did not return diagnostic fingerprints for: "
-            "cppcheck` and exit code 1, because the harness compares two "
-            "tools and one of them cannot start (see CORE-04). Testers on "
-            "Linux: mark KO, quote that line, do not open a new anomaly."
-        ),
+        eip="F9",
     ),
     dict(
         id="CORE-09",
         component="coretrace",
         name="Configuration file and CLI precedence",
         category=SECONDARY,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
             "Check that settings can be supplied by file and that a CLI flag "
@@ -1124,32 +1197,129 @@ SCENARIOS = [
             "rm -f config/atp-prec.json",
         ],
         expected=(
-            "The first run writes /tmp/atp-from-config.json (path taken from "
-            "the config file). The second writes /tmp/atp-from-cli.json, "
-            "showing `--report-file` overrides the config. Both files parse "
-            "as JSON and contain a `diagnosticsSummary` object. Exit code 0 "
-            "for both."
+            'The first run writes /tmp/atp-from-config.json (path taken from the config '
+            'file). The second writes /tmp/atp-from-cli.json, showing `--report-file` '
+            'overrides the config. Both `ls -l` lines show an existing file, and both '
+            'runs print a JSON report containing a `diagnosticsSummary` object. Each run '
+            'ends with `Verdict: info=0, warning=1, error=1, fail-on=error (exit code '
+            '2)`: the analysed file holds an error-level defect, which is expected here.'
         ),
     ),
     dict(
         id="CORE-10",
         component="coretrace",
-        name="Configuration unit tests",
+        name="Orchestrator test suite",
         category=SECONDARY,
-        platform=BOTH,
+        platform=LINUX,
         status=DONE,
         objective=(
-            "Run the orchestrator's own test suite covering config parsing "
-            "and precedence."
+            "Run the orchestrator's own test suite: configuration parsing and precedence,"
+            ' exit-code policy, SARIF and report files, the HTTP server, and the bridges '
+            'to the stack and concurrency analyzers.'
         ),
-        prerequisites=PRE_BUILT,
+        prerequisites=PRE_BUILT + " Takes less than a minute.",
         steps=[
             "cd coretrace",
             "ctest --test-dir build --output-on-failure",
         ],
         expected=(
-            "`100% tests passed, 0 tests failed out of 1` "
-            "(`ctrace_config_tests`). Exit code 0."
+            '`100% tests passed, 0 tests failed out of 99`. Exit code 0.'
+        ),
+    ),
+    dict(
+        id="CORE-11",
+        eip="F7",
+        component="coretrace",
+        name="Parallel tool execution",
+        category=SECONDARY,
+        platform=LINUX,
+        status=DONE,
+        objective=(
+            "Check that running the analysis tools in parallel gives exactly the "
+            "same diagnostics as running them one after the other."
+        ),
+        prerequisites=PRE_PY + " cppcheck is installed in the image.",
+        steps=[
+            "cd coretrace",
+            "python3 tests/BTP-STACK-ANALYZER-F7 --ctrace-bin ./build/ctrace --iterations 1 "
+            "--warmups 0 --min-speedup-ratio 0; echo \"exit=$?\"",
+        ],
+        expected=(
+            "The script prints `sync model: sequential CoreTrace tool invocations with -j1`, "
+            "`async model: parallel CoreTrace tool invocations with -j4`, a `speedup:` line, "
+            "and a `diagnostics:` line whose `\"async\"` and `\"sync\"` entries hold the "
+            "same counts for `cppcheck` and `ctrace_stack_analyzer`. It ends with `exit=0`: "
+            "the script exits non-zero when the two modes disagree. The speed-up value "
+            "depends on the machine and is not the check."
+        ),
+    ),
+    dict(
+        id="CORE-12",
+        eip="F6",
+        component="coretrace",
+        name="Code style check on the four repositories",
+        category=SECONDARY,
+        platform=LINUX,
+        status=DONE,
+        objective=(
+            "Check that the code style pipeline is reproducible: the format check "
+            "the CI runs passes, unchanged, on each repository."
+        ),
+        prerequisites=PRE_BUILT + " clang-format 20 is installed in the image.",
+        steps=[
+            "(cd coretrace && ./scripts/format-check.sh); echo \"exit=$?\"",
+            "(cd coretrace-stack-analyzer && ./scripts/format-check.sh); echo \"exit=$?\"",
+            "(cd coretrace-concurrency-analyzer && ./scripts/format-check.sh); echo \"exit=$?\"",
+            "(cd coretrace-runtime-analyzer && ./scripts/format-check.sh); echo \"exit=$?\"",
+        ],
+        expected=(
+            "Each of the four commands prints `Checking formatting on <n> ... files...` "
+            "(107, 637, 106 and 24 files), then `Formatting is clean.` and `exit=0`."
+        ),
+    ),
+    dict(
+        id='CORE-13',
+        component='coretrace',
+        name='Several analyzers in one run, one merged verdict',
+        category=CRITICAL,
+        platform=LINUX,
+        status=DONE,
+        objective=(
+            'Check what the orchestrator is for: one command runs two analyzers on the '
+            'same file, and their findings are merged into a single verdict and exit '
+            'code.'
+        ),
+        prerequisites=PRE_BUILT,
+        steps=[
+            'cd coretrace',
+            './build/ctrace --invoke ctrace_stack_analyzer,coretrace-concurrency-analyzer --input ../coretrace-concurrency-analyzer/tests/fixtures/concurrency/data-race/data_race_basic.c --report-file /tmp/atp-multi.json; echo "exit=$?"',
+        ],
+        expected=(
+            'The log shows both tools running: `Running coretrace-concurrency-analyzer on'
+            ' 1 file(s)` and `Running CoreTrace Stack Analyzer on`. Each reports its own '
+            'summary: `(coretrace-concurrency-analyzer) Diagnostics summary: info=0, '
+            'warning=0, error=1` and `(ctrace_stack_analyzer) Diagnostics summary: '
+            'info=1, warning=2, error=0`. The last line adds them up: `Verdict: info=1, '
+            'warning=2, error=1, fail-on=error (exit code 2)`, then `exit=2` — the data '
+            'race is an error-level finding.'
         ),
     ),
 ]
+
+# The EIP features of the toolchain. F1 to F11 are those of the Beta Test Plan
+# (June 2026); F12 was added since. Shown on the Info & Access tab next to the
+# scenarios that carry each number.
+FEATURES = {
+    "F1": "Stack usage analysis (IR and ABI modes)",
+    "F2": "Advanced stack diagnostics (memcpy/memset, aliasing, const-correctness)",
+    "F3": "Instrumentation modules (trace, alloc, bounds)",
+    "F4": "Runtime analyzer",
+    "F5": "SARIF, JSON and human-readable output",
+    "F6": "Code style checks (format, format-check)",
+    "F7": "Parallel (asynchronous) tool execution",
+    "F8": "Mangle/demangle, Itanium ABI",
+    "F9": "IPC for the GUI and VS Code clients",
+    "F10": "Static stack-buffer overflow analysis",
+    "F11": "Overflow detection at runtime",
+    "F12": "Static concurrency analysis",
+}

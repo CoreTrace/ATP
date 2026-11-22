@@ -1,0 +1,39 @@
+# Fixtures of coretrace-concurrency-analyzer that must produce NO diagnostic at all.
+#
+# The corpus holds many more files named *_no_fp, *_no_diagnostic or
+# *_no_missing_join, but that suffix only promises that ONE rule stays silent:
+# some of them legitimately report another defect (their header says which),
+# and some need -std=c++20. Only the files listed here are contractually silent
+# with the default options, so only these can be checked with a plain "zero
+# diagnostics" assertion (CONC-05). The per-fixture expectations of the whole
+# corpus are run by the repository's own suites (CONC-08).
+#
+# Paths are relative to the coretrace-concurrency-analyzer checkout.
+tests/fixtures/concurrency/condition-variable/condition_variable_predicate_loop_no_diagnostic.c
+tests/fixtures/concurrency/data-race/cpp_atomic_operations_no_fp.cpp
+tests/fixtures/concurrency/data-race/cpp_condition_variable_no_fp.cpp
+tests/fixtures/concurrency/data-race/cpp_lock_guard_protected_no_fp.cpp
+tests/fixtures/concurrency/data-race/cpp_scoped_lock_protected_no_fp.cpp
+tests/fixtures/concurrency/data-race/data_race_alias_ambiguous_pointer_no_fp.c
+tests/fixtures/concurrency/data-race/data_race_disjoint_array_elements_no_fp.c
+tests/fixtures/concurrency/data-race/data_race_disjoint_struct_fields_no_fp.c
+tests/fixtures/concurrency/data-race/data_race_exclusive_branch_spawns_no_fp.c
+tests/fixtures/concurrency/data-race/data_race_rwlock_protected_no_fp.c
+tests/fixtures/concurrency/data-race/data_race_sequential_threads_no_fp.c
+tests/fixtures/concurrency/deadlock/cpp_recursive_mutex_no_diagnostic.cpp
+tests/fixtures/concurrency/deadlock/deadlock_consistent_order_no_diagnostic.c
+tests/fixtures/concurrency/deadlock/deadlock_gate_lock_serializes_no_diagnostic.c
+tests/fixtures/concurrency/deadlock/deadlock_independent_locks_no_diagnostic.c
+tests/fixtures/concurrency/deadlock/deadlock_opposite_order_not_concurrent_no_diagnostic.c
+tests/fixtures/concurrency/deadlock/deadlock_pthread_recursive_mutex_no_diagnostic.c
+tests/fixtures/concurrency/deadlock/deadlock_sequential_threads_no_diagnostic.c
+tests/fixtures/concurrency/deadlock/deadlock_sibling_member_mutexes_no_diagnostic.c
+tests/fixtures/concurrency/missing-join/cpp_std_thread_join_no_missing_join.cpp
+tests/fixtures/concurrency/missing-join/cpp_std_thread_move_join_no_missing_join.cpp
+tests/fixtures/concurrency/missing-join/cpp_thread_vector_join_no_missing_join.cpp
+tests/fixtures/concurrency/missing-join/cpp_user_type_named_thread_no_missing_join.cpp
+tests/fixtures/concurrency/missing-join/pthread_branch_creates_single_join_no_missing_join.c
+tests/fixtures/concurrency/missing-join/pthread_create_join_through_handle_pointer_no_missing_join.c
+tests/fixtures/concurrency/missing-join/pthread_detach_all_no_missing_join.c
+tests/fixtures/concurrency/missing-join/pthread_detached_attribute_no_missing_join.c
+tests/fixtures/concurrency/missing-join/pthread_join_all_no_missing_join.c
